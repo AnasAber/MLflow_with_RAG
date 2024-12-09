@@ -2,6 +2,11 @@
 
 This project is for people that want to use MLflow to evaluate their RAG pipeline.
 
+The project uses:
+- `LlamaIndex` as an orchestrator
+- `Ollama` and `HuggingfaceLLMs`
+- `MLflow` as an MLOps framework
+
 ![Project Overview Diagram](images/mlflow_overview.png)
 ### How to start
 
