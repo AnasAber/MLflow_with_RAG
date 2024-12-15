@@ -1,34 +1,25 @@
-import argparse
-import asyncio
-import mlflow
-import nest_asyncio
-import pandas as pd
+from llama_index.core import Settings, SimpleDirectoryReader, VectorStoreIndex
 from llama_index.llms.ollama import Ollama as LlamaIndexOllama
 from llama_index.embeddings.ollama import OllamaEmbedding
-from llama_index.core.llms import CustomLLM, LLMMetadata
-from llama_index.core.base.llms.types import CompletionResponse
-import os
-
-nest_asyncio.apply()
-import warnings
-
-warnings.filterwarnings('ignore')
-
-import pandas as pd
-import torch
-from llama_index.core import Settings, SimpleDirectoryReader, VectorStoreIndex, set_global_tokenizer
+from llama_index.core.node_parser import SentenceSplitter
+from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.core.evaluation import (
     EmbeddingQAFinetuneDataset,
     RetrieverEvaluator,
     generate_question_context_pairs
 )
+import nest_asyncio
+import pandas as pd
+import warnings
+import argparse
+import asyncio
+import mlflow
+import os
 
-from llama_index.core.retrievers import QueryFusionRetriever
-from llama_index.core.node_parser import SentenceSplitter
-from llama_index.retrievers.bm25 import BM25Retriever
-from pydantic import Field
-import uuid
-import json
+nest_asyncio.apply()
+warnings.filterwarnings('ignore')
+
+
 
 llm = LlamaIndexOllama(model="mistral", modelfile="Modelfile")
 embed_model = OllamaEmbedding(
@@ -38,6 +29,7 @@ embed_model = OllamaEmbedding(
 
 Settings.llm = llm
 Settings.embed_model = embed_model
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Tune RAG Model MLflow")
@@ -50,6 +42,8 @@ def parse_args():
     parser.add_argument('--chunk_questions', type=int, default=2, help="Number of questions per chunk")
     parser.add_argument('--retriever_type', type=str, default="bm25_retriever", help="The retriever type")
     return parser.parse_args()
+
+
 
 async def tune_rag(args):
     documents = SimpleDirectoryReader(args.dataset_dir).load_data()
@@ -68,17 +62,11 @@ async def tune_rag(args):
     vector_retriever = vector_index.as_retriever(similarity_top_k=args.top_k, similarity_cutoff=0.6)
 
 
-    # # Use query fusion for better retrieval
-    # retriever = QueryFusionRetriever(
-    #     [vector_retriever, bm25_retriever],
-    #     similarity_top_k=3,
-    # )
-
-
     # Check if the dataset JSON file exists
-    if os.path.exists(args.dataset_name):
+    if os.path.exists(args.dataset_name):   
         # Load existing dataset
         qa_dataset = EmbeddingQAFinetuneDataset.from_json(args.dataset_name)
+        print(qa_dataset)
         print(f"Loaded existing dataset from {args.dataset_name}")
     else:
         # Generate new dataset
@@ -89,9 +77,10 @@ async def tune_rag(args):
         )
         print(f"this is the qa_dataset outside the function: {qa_dataset}")
         
-        qa_dataset = EmbeddingQAFinetuneDataset.from_json(qa_dataset)
         # Save the newly generated dataset
         qa_dataset.save_json(args.dataset_name)
+
+        qa_dataset = EmbeddingQAFinetuneDataset.from_json(qa_dataset)
 
         print(f"Generated and saved new dataset to {args.dataset_name}")
 
@@ -118,7 +107,6 @@ async def tune_rag(args):
         mlflow.log_param("chunk_size", args.chunk_size)
         mlflow.log_param("chunk_questions", args.chunk_questions)
         mlflow.log_param("retriever type", args.retriever_type)
-        
 
         mlflow.log_artifact(args.dataset_name)
 
