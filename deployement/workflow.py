@@ -3,22 +3,22 @@ from llama_index.core import (Settings, SimpleDirectoryReader, VectorStoreIndex,
 from mlflow.models import convert_input_example_to_serving_input, validate_serving_input
 from llama_index.core import Settings, SimpleDirectoryReader, VectorStoreIndex
 from llama_index.llms.ollama import Ollama as LlamaIndexOllama
+from chroma_db_functions import check_and_process_documents
+from model import generate_response, generate_response_groq
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.retrievers.bm25 import BM25Retriever
-from model import generate_response
+from main_reasoning import reasoning
 import nest_asyncio
 import pandas as pd
 import warnings
 import asyncio
 import mlflow
-import json
 import os
 
 
 nest_asyncio.apply()
 warnings.filterwarnings('ignore')
-\
+
 
 import logging
 logger = logging.getLogger("mlflow")
@@ -27,7 +27,7 @@ logger.setLevel(logging.DEBUG)
 
 class RAGTuningPipeline(mlflow.pyfunc.PythonModel):
     def __init__(self, dataset_dir, chunk_size, top_k, model_name, embedder_name, 
-                 dataset_name, chunk_questions, retriever_type, vector_index):
+                 dataset_name, chunk_questions, retriever_type):
         self.dataset_dir = dataset_dir
         self.chunk_size = chunk_size
         self.top_k = top_k
@@ -36,7 +36,6 @@ class RAGTuningPipeline(mlflow.pyfunc.PythonModel):
         self.dataset_name = dataset_name
         self.chunk_questions = chunk_questions
         self.retriever_type = retriever_type
-        self.vector_index = vector_index
 
     def load_context(self, context):
         # Initialize LLM and embedding model
@@ -50,9 +49,15 @@ class RAGTuningPipeline(mlflow.pyfunc.PythonModel):
         Settings.embed_model = embed_model
 
     def predict(self, context=None, input_data=None):
-
-        if input_data == None:
-            return self.evaluate()
+    
+        embed_model = OllamaEmbedding(
+            model_name="nomic-embed-text:latest",
+            base_url="http://localhost:11434"
+        )
+        Settings.embed_model = embed_model
+        
+        llm = LlamaIndexOllama(model=self.model_name, modelfile="Modelfile")
+        Settings.llm = llm
 
         # Ensure input_data is a dictionary with a 'query' key
         if isinstance(input_data, pd.DataFrame):
@@ -64,61 +69,19 @@ class RAGTuningPipeline(mlflow.pyfunc.PythonModel):
 
         print(f"\nProcessing query: {query}")
 
-        Settings.embed_model = OllamaEmbedding(
-            model_name="nomic-embed-text:latest",
-            base_url="http://localhost:11434"
-        )
-        llm = LlamaIndexOllama(model=self.model_name, modelfile="Modelfile")
-        Settings.llm = llm
-
-        # Load documents and create nodes
-        documents = SimpleDirectoryReader(self.dataset_dir).load_data()
-        node_parser = SentenceSplitter(chunk_size=self.chunk_size, chunk_overlap=100)
-        nodes = node_parser.get_nodes_from_documents(documents)
-
-        for idx, node in enumerate(nodes):
-            node.id_ = f"node_{idx}"
-
-        # Create vector index and retriever
-        vector_index = VectorStoreIndex(nodes)
-        vector_retriever = vector_index.as_retriever(
-            similarity_top_k=self.top_k, 
-            similarity_cutoff=0.6
-        )
-
-
-        # Create query bundle explicitly
-        query_bundle = QueryBundle(query_str=query)
-
-        # Retrieve relevant nodes
         print("Retrieving relevant nodes...")
-        retrieved_nodes = vector_retriever.retrieve(query_bundle)
-
-        # Extract text from retrieved nodes
-        context_text = "\n".join([node.node.text for node in retrieved_nodes])
+        context_text = reasoning(query)
         print(f"Retrieved nodes text: {context_text[:100]}")
 
         # Generate response
         print("Generating response...")
-        response = generate_response(context_text, query, self.model_name)
+        response = generate_response_groq(context_text, query)
 
         print(f"response: {response}")
         return {"query": query, "responses": str(response)}
 
 
     async def evaluate(self):
-
-        documents = SimpleDirectoryReader(self.dataset_dir).load_data()
-        node_parser = SentenceSplitter(chunk_size=self.chunk_size, chunk_overlap=100)
-        nodes = node_parser.get_nodes_from_documents(documents)
-
-        for idx, node in enumerate(nodes):
-            node.id_ = f"node_{idx}"
-
-
-        vector_index = VectorStoreIndex(nodes)
-        vector_retriever = vector_index.as_retriever(similarity_top_k=self.top_k, similarity_cutoff=0.5)
-
         # Load or generate QA dataset
         if os.path.exists(self.dataset_name):
             qa_dataset = EmbeddingQAFinetuneDataset.from_json(self.dataset_name)
@@ -177,8 +140,22 @@ class RAGTuningPipeline(mlflow.pyfunc.PythonModel):
 
 # Save the model
 if __name__ == "__main__":
+
+
+    print("documents loaded")
+
+    embed_model = OllamaEmbedding(
+        model_name="nomic-embed-text:latest",
+        base_url="http://localhost:11434"
+    )
+    Settings.embed_model = embed_model
+
+    vector_index = check_and_process_documents()
+
+    print("documents added to the vector store")
+        
     model_params = {
-        "dataset_dir": "../data",
+        "dataset_dir": "../data/raw",
         "chunk_size": 512,
         "top_k": 8,
         "model_name": "llama3.2:latest",
@@ -217,14 +194,25 @@ if __name__ == "__main__":
                     "mlflow",
                     "torch",
                     "pandas",
-                    "llama-index",
-                    "llama-index-core",
-                    "llama-index-llms-ollama",
-                    "llama-index-retrievers-bm25",
-                    "llama-index-llms-huggingface",
-                    "llama-index-embeddings-ollama",
-                    "llama-index-vector-stores-chroma",
-                    "llama-index-llms-huggingface-api",
+                    "pip",
+                    {
+                        "pip": [
+                            "llama-index",
+                            "llama-index-core",
+                            "llama-index-llms-ollama",
+                            "llama-index-retrievers-bm25",
+                            "llama-index-llms-huggingface",
+                            "llama-index-embeddings-ollama",
+                            "llama-index-vector-stores-chroma",
+                            "llama-index-llms-huggingface-api",
+                            "scikit-learn",
+                            "groq",
+                            "langchain",
+                            "langchain-community",
+                            "einops",
+                            "sentence-transformers"
+                        ]
+                    },
                 ]
             },
             input_example=serving_input,
@@ -239,4 +227,3 @@ if __name__ == "__main__":
 
 
     print("Model logged to MLflow")
- 

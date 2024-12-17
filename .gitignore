@@ -1,3 +1,6 @@
 mlruns/
 test.py
 __pycache__
+..data/
+.env
+install-pyenv-win.ps1
