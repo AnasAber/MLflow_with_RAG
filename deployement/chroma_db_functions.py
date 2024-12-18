@@ -24,14 +24,12 @@ def get_chroma_db(get_embeddings=get_embeddings(), in_memory=True):
 def retrieve_documents(query, top_k=5):
     chroma_db = get_chroma_db()
     print("#"*100 + "\n\n")
-
     print("Retrieving documents...")
     results = chroma_db.similarity_search_with_score(query, top_k)
     context_text= "\n\n---\n\n".join([doc.page_content for doc, _score in results])
-
     print("Documents: ", context_text)
-
     return context_text
+
 
 def format_context(context):
     return "\n\n".join([f"Chunk {i+1}: {chunk}" for i, chunk in enumerate(context)])
@@ -47,6 +45,7 @@ def add_to_chroma_db(reranked_chunks):
     chroma_db = get_chroma_db()
     chroma_db.add_documents(reranked_chunks)
     chroma_db.persist()
+
 
 
 def check_and_process_documents():
@@ -66,6 +65,7 @@ def check_and_process_documents():
         print("Documents embedded and stored")
     else:
         print(f"Path already exists: {path}")
+
 
 def close_chroma_db_connection():
     try:
