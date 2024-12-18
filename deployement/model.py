@@ -1,5 +1,7 @@
-
+from dotenv import load_dotenv
+from groq import Groq
 import requests
+import os
 
 def generate_response(context, query, model_name):
     payload = {
@@ -20,3 +22,21 @@ def generate_response(context, query, model_name):
         print(f"Error generating response: {e}")
         return None
 
+load_dotenv()
+
+api_key = os.getenv("GROQ_API")
+
+client = Groq(api_key=api_key)
+
+def generate_response_groq(context, query):
+    chat_completion = client.chat.completions.create(
+        messages=[{"role": "user", "content": f"Answer the question of the user based on this context {context}\n\nQuestion: {query}"}],
+        model="llama3-70b-8192",
+        temperature=0.2,
+        max_tokens=1024,
+        top_p=1,
+        stop=None,
+        stream=False,
+        )
+    response = chat_completion.choices[0].message.content
+    return response
