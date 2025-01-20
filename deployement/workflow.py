@@ -13,6 +13,7 @@ import pandas as pd
 import warnings
 import asyncio
 import mlflow
+import json
 import os
 
 
@@ -136,6 +137,11 @@ class RAGTuningPipeline(mlflow.pyfunc.PythonModel):
 
         return {"Hit Rate": hit_rate, "MRR": mrr}
     
+# Function to save the latest run ID
+def save_latest_run_id(run_id, file_path="latest_run_id.json"):
+    with open(file_path, "w") as file:
+        json.dump({"run_id": run_id}, file)
+    print(f"Latest run ID saved: {run_id}")
 
 
 # Save the model
@@ -182,7 +188,7 @@ if __name__ == "__main__":
     # # Convert input example to serving input
     serving_input = convert_input_example_to_serving_input(example_input)
 
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         # Log the RAG pipeline
         mlflow.pyfunc.log_model(
             artifact_path="rag_deployement",
@@ -192,7 +198,7 @@ if __name__ == "__main__":
                 "dependencies": [
                     "python=3.11.5",
                     "mlflow",
-                    "torch",
+                    # "torch",
                     "pandas",
                     "pip",
                     {
@@ -225,5 +231,16 @@ if __name__ == "__main__":
         mlflow.log_param("top_k", model_params["top_k"])
         mlflow.log_param("chunk_size", model_params["chunk_size"])
 
+        # Your existing code for logging parameters, metrics, and models
+        mlflow.log_param("LLM", model_params["model_name"])
+        mlflow.log_param("Embedding Model", model_params["embedder_name"])
+        mlflow.log_param("Retriever Used", model_params["retriever_type"])
+        mlflow.log_param("top_k", model_params["top_k"])
+        mlflow.log_param("chunk_size", model_params["chunk_size"])
+
+        # Save the latest successful run ID
+        latest_run_id = run.info.run_id
+        save_latest_run_id(latest_run_id)
 
     print("Model logged to MLflow")
+    print(latest_run_id)

@@ -1,0 +1,14 @@
+# this one is exposed from port 3000
+
+FROM node:14.17.0-alpine3.13
+
+COPY frontend /app/frontend/
+
+WORKDIR /app/frontend
+
+RUN npm install
+
+EXPOSE 3000
+
+CMD ["npm", "start"]
+

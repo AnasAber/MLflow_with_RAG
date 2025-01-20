@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    container_name: mlflow-1
+    volumes:
+      - pip-cache:/root/.cache/pip
+    ports:
+      - "5001:5001"
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: backend-1
+    volumes:
+      - pip-cache:/root/.cache/pip
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mlflow
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pip-cache:
+    driver: local

@@ -42,45 +42,6 @@ def stream_response(response_text):
 MLFLOW_MODEL_URL = "http://127.0.0.1:5001/invocations"
 
 
-# @app.route('/query', methods=['POST'])
-# def handle_query():
-#     data = request.json
-#     print(f"here's the data request: {data}")
-#     query = data.get('query')
-#     if not query:
-#         return jsonify({"error": "No query provided"}), 400
-    
-#     try:
-#         # Prepare data for MLflow model
-#         print("i'm before mlflow_payload")
-#         mlflow_payload = {"instances": [{"query": query}]}
-        
-#         # Send request to MLflow-served model
-#         print("i'm before response")
-#         response = requests.post(MLFLOW_MODEL_URL, json=mlflow_payload)
-#         print("i'm after mlflow_payload")
-        
-#         # Check if the request was successful
-#         if response.status_code == 200:
-#             # Extract the response from the MLflow model
-#             print("If this shows up, it means this should work")
-
-#             model_response = response.json()
-
-#             print(f"this is the model's response: {model_response}")
-
-#             response_text = model_response.get('predictions', {}).get('responses', 'No response')
-            
-#             print(f"this is the response_Text : {response_text}")
-#             return jsonify({"response": response_text})
-#         else:
-#             print("i'm in error that means response is not working")
-#             return jsonify({"error": f"MLflow model request failed: {response.text}"}), 500
-    
-#     except requests.RequestException as e:
-#         return jsonify({"error": f"Request to MLflow model failed: {str(e)}"}), 500
-
-
 @app.route('/query', methods=['POST'])
 def handle_query():
     data = request.json

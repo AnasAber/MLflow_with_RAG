@@ -7,17 +7,15 @@ from data.process_data import load_documents, embed_and_store_documents, split_d
 from llama_index.embeddings.ollama import OllamaEmbedding
 from langchain_community.vectorstores import Chroma
 from deployement.get_embeddings import get_embeddings
-import sqlite3
 
-CHROMA_PATH = "..data/chroma"
+CHROMA_PATH = "../data/chroma"
 
-# load the data
-def get_chroma_db(get_embeddings=get_embeddings(), in_memory=True):
+def get_chroma_db(get_embeddings=get_embeddings(), in_memory=False):
     if in_memory:
-        # In-memory ChromaDB (much faster)
-        return Chroma(embedding_function=get_embeddings)
+        print("Initializing in-memory ChromaDB (faster, no persistence).")
+        return Chroma(embedding_function=get_embeddings)  # In-memory mode
     else:
-        # Disk-based ChromaDB
+        print(f"Initializing persistent ChromaDB at: {CHROMA_PATH}")
         return Chroma(persist_directory=CHROMA_PATH, embedding_function=get_embeddings)
 
 
@@ -67,17 +65,16 @@ def check_and_process_documents():
         print(f"Path already exists: {path}")
 
 
-def close_chroma_db_connection():
+def close_chroma_db_connection(in_memory=False):
     try:
-        chroma_db_connection = get_chroma_db()
-        if chroma_db_connection is not None:
-            chroma_db_connection.delete_collection()
-            chroma_db_connection.persist()
-            chroma_db_connection = None
-
-        # Forcefully close SQLite connection
-        conn = sqlite3.connect('../data/chroma/chroma.sqlite3')
-        conn.close()
-        print("ChromaDB connection closed successfully.")
+        chroma_db = get_chroma_db(in_memory=in_memory)
+        if not in_memory:
+            # For persistent ChromaDB
+            if chroma_db is not None:
+                chroma_db.delete_collection()
+                chroma_db.persist()
+                print("ChromaDB persistent connection closed successfully.")
+        else:
+            print("No need to close in-memory ChromaDB (ephemeral).")
     except Exception as e:
         print(f"Error closing ChromaDB connection: {e}")

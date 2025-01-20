@@ -1,9 +1,11 @@
+import sys
+import os
+sys.path.append("..")
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from llama_index.embeddings.ollama import OllamaEmbedding
 from langchain_community.vectorstores import Chroma
 from langchain.schema.document import Document
-from deployement.get_embeddings import get_embeddings
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -35,8 +37,8 @@ def split_documents(documents):
 
 
 def embed_and_store_documents(chunks):
-    chroma_db = Chroma(persist_directory=CHROMA_PATH, embedding_function=get_embeddings())
-    
+    from deployement.chroma_db_functions import get_chroma_db
+    chroma_db = get_chroma_db(in_memory=False)
     # Use ThreadPoolExecutor to process chunks into Document objects
     with ThreadPoolExecutor(max_workers=8) as executor:  # Adjust max_workers based on CPU cores
         documents = list(executor.map(lambda chunk: Document(page_content=chunk.page_content), chunks))

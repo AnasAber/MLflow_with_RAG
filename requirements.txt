@@ -1,3 +1,4 @@
+torch --index-url https://download.pytorch.org/whl/cpu
 llama-index
 llama-index-core
 llama-index-llms-ollama
@@ -7,13 +8,14 @@ llama-index-embeddings-ollama
 llama-index-llms-huggingface-api
 llama-index-vector-stores-chroma
 sentence-transformers
-bitsandbytes
+langchain_community
 flask_cors
+virtualenv
 langchain
 chromadb
 mlflow
 pandas
 einops
-torch
 flask
+groq
 cors
